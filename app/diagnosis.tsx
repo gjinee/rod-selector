@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 
 // Types
+type PermType = "eyelash" | "under";
 type Coverage = "none" | "slight" | "heavy";
 type Thickness = "thin" | "thick";
 type Direction = "down" | "average" | "up";
@@ -139,7 +140,14 @@ const directionLabels: Record<Direction, string> = {
   up: "극상향",
 };
 
+const underCoverageLabels: Record<Coverage, string> = {
+  none: "평범 눈매",
+  slight: "",
+  heavy: "주의 눈매",
+};
+
 export default function Diagnosis() {
+  const [permType, setPermType] = useState<PermType | null>(null);
   const [coverage, setCoverage] = useState<Coverage | null>(null);
   const [thickness, setThickness] = useState<Thickness | null>(null);
   const [direction, setDirection] = useState<Direction | null>(null);
@@ -148,12 +156,30 @@ export default function Diagnosis() {
   const step3Ref = useRef<HTMLDivElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
-  const currentStep =
-    coverage === null ? 1 : thickness === null ? 2 : direction === null ? 3 : 4;
-  const progress = ((currentStep - 1) / 3) * 100;
+  const isUnderPerm = permType === "under";
 
-  const allSelected = coverage !== null && thickness !== null && direction !== null;
-  const result = allSelected ? getResult(coverage, thickness, direction) : null;
+  let currentStep: number;
+  if (isUnderPerm) {
+    currentStep = coverage === null ? 1 : 2;
+  } else {
+    currentStep =
+      coverage === null ? 1 : thickness === null ? 2 : direction === null ? 3 : 4;
+  }
+
+  const totalSteps = isUnderPerm ? 1 : 3;
+  const progress = ((Math.min(currentStep, totalSteps + 1) - 1) / totalSteps) * 100;
+
+  const eyelashDone =
+    permType === "eyelash" &&
+    coverage !== null &&
+    thickness !== null &&
+    direction !== null;
+  const allSelected = eyelashDone;
+
+  const result =
+    permType === "eyelash" && coverage !== null && thickness !== null && direction !== null
+      ? getResult(coverage, thickness, direction)
+      : null;
 
   useEffect(() => {
     if (currentStep === 2 && step2Ref.current) {
@@ -165,7 +191,15 @@ export default function Diagnosis() {
     }
   }, [currentStep]);
 
+  const selectPermType = (type: PermType) => {
+    setPermType(type);
+    setCoverage(null);
+    setThickness(null);
+    setDirection(null);
+  };
+
   const reset = () => {
+    setPermType(null);
     setCoverage(null);
     setThickness(null);
     setDirection(null);
@@ -187,6 +221,18 @@ export default function Diagnosis() {
     setDirection(null);
   };
 
+  const goBack = () => {
+    if (direction !== null) {
+      setDirection(null);
+    } else if (thickness !== null) {
+      setThickness(null);
+    } else if (coverage !== null) {
+      setCoverage(null);
+    } else {
+      setPermType(null);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -201,31 +247,71 @@ export default function Diagnosis() {
       </div>
 
       {/* Progress bar */}
-      <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-pink rounded-full transition-all duration-500 ease-out"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
+      {permType !== null && (
+        <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-pink rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
 
       {/* Selected tags */}
-      {(coverage || thickness || direction) && (
+      {permType !== null && (coverage || thickness || direction) && (
         <div className="flex flex-wrap gap-2">
-          {coverage && (
+          {permType === "under" && coverage && (
+            <Tag label={underCoverageLabels[coverage]} onRemove={removeCoverage} />
+          )}
+          {permType === "eyelash" && coverage && (
             <Tag label={coverageLabels[coverage]} onRemove={removeCoverage} />
           )}
-          {thickness && (
+          {permType === "eyelash" && thickness && (
             <Tag label={thicknessLabels[thickness]} onRemove={removeThickness} />
           )}
-          {direction && (
+          {permType === "eyelash" && direction && (
             <Tag label={directionLabels[direction]} onRemove={removeDirection} />
           )}
         </div>
       )}
 
-      {/* STEP 1 */}
-      {currentStep >= 1 && !allSelected && coverage === null && (
+      {/* Perm type selection (first screen) */}
+      {permType === null && (
+        <div className="flex flex-col gap-4 mt-2">
+          <div>
+            <h2 className="text-lg font-bold text-white text-center">
+              어떤 시술을 진단할까요?
+            </h2>
+            <p className="text-sm text-zinc-400 text-center mt-1">
+              시술 종류를 선택해주세요
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => selectPermType("eyelash")}
+            className="w-full py-6 rounded-2xl bg-zinc-900 border-2 border-zinc-800 active:border-pink active:bg-zinc-800/80 cursor-pointer text-center"
+            style={{ WebkitUserSelect: "none", userSelect: "none" }}
+          >
+            <span className="text-2xl">👁</span>
+            <p className="font-bold text-white text-lg mt-2">속눈썹펌</p>
+            <p className="text-xs text-zinc-400 mt-1">윗속눈썹 컬링 시술</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => selectPermType("under")}
+            className="w-full py-6 rounded-2xl bg-zinc-900 border-2 border-zinc-800 active:border-pink active:bg-zinc-800/80 cursor-pointer text-center"
+            style={{ WebkitUserSelect: "none", userSelect: "none" }}
+          >
+            <span className="text-2xl">👀</span>
+            <p className="font-bold text-white text-lg mt-2">언더펌</p>
+            <p className="text-xs text-zinc-400 mt-1">아래속눈썹 컬링 시술</p>
+          </button>
+        </div>
+      )}
+
+      {/* STEP 1 - 속눈썹펌 */}
+      {permType === "eyelash" && currentStep >= 1 && !allSelected && coverage === null && (
         <div className="flex flex-col gap-4">
+          <BackButton onClick={goBack} />
           <div>
             <p className="text-pink text-xs font-bold mb-1">STEP 1</p>
             <h2 className="text-lg font-bold text-white">
@@ -255,9 +341,37 @@ export default function Diagnosis() {
         </div>
       )}
 
-      {/* STEP 2 */}
-      {currentStep >= 2 && !allSelected && thickness === null && (
+      {/* STEP 1 - 언더펌 */}
+      {permType === "under" && currentStep >= 1 && !allSelected && coverage === null && (
+        <div className="flex flex-col gap-4">
+          <BackButton onClick={goBack} />
+          <div>
+            <p className="text-pink text-xs font-bold mb-1">STEP 1</p>
+            <h2 className="text-lg font-bold text-white">
+              눈매 형태는
+              <br />
+              어떤가요?
+            </h2>
+          </div>
+          <OptionCard
+            emoji="👁"
+            label="평범 눈매"
+            desc="정면 - 뿌리부분 잘 보임 / 측면 - 뿌리 방향이 정면으로 향함"
+            onClick={() => setCoverage("none")}
+          />
+          <OptionCard
+            emoji="⚠️"
+            label="주의 눈매 (애교살/안검내반)"
+            desc="정면 - 속눈썹 잘 안보임 / 측면 - 뿌리 방향이 천장으로 향함"
+            onClick={() => setCoverage("heavy")}
+          />
+        </div>
+      )}
+
+      {/* STEP 2 - 속눈썹펌 */}
+      {permType === "eyelash" && currentStep >= 2 && !allSelected && thickness === null && (
         <div ref={step2Ref} className="flex flex-col gap-4">
+          <BackButton onClick={goBack} />
           <div>
             <p className="text-pink text-xs font-bold mb-1">STEP 2</p>
             <h2 className="text-lg font-bold text-white">
@@ -279,9 +393,99 @@ export default function Diagnosis() {
         </div>
       )}
 
-      {/* STEP 3 */}
-      {currentStep >= 3 && !allSelected && direction === null && (
+      {/* STEP 2 - 언더펌 평범눈매 */}
+      {permType === "under" && coverage === "none" && currentStep >= 2 && (
+        <div ref={step2Ref} className="flex flex-col gap-4">
+          <BackButton onClick={goBack} />
+          <div>
+            <p className="text-pink text-xs font-bold mb-1">STEP 2</p>
+            <h2 className="text-lg font-bold text-white">
+              추천 롯드를 확인해주세요
+            </h2>
+          </div>
+          <div className="rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(255, 45, 120, 0.08)" }}>
+            <p className="text-sm text-pink font-bold">컬 상관없음 / 정사이즈</p>
+          </div>
+          <InfoCard
+            emoji="⬇️"
+            label="바짝!! 내려주세요"
+            desc="U컬, L컬 롯드 중 선택"
+          />
+          <InfoCard
+            emoji="〰️"
+            label="둥글, 자연스러운게 좋아요"
+            desc="C컬 롯드 중 선택"
+          />
+          <div className="rounded-xl bg-zinc-900 px-4 py-3">
+            <p className="text-sm text-zinc-300">
+              💡 <span className="text-pink font-bold">언더래쉬가 길거나, 애교살 있는/심한 사람 C컬 OK</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={reset}
+            className="w-full py-4 rounded-full border-2 border-pink text-pink font-bold text-lg text-center cursor-pointer active:bg-pink active:text-white mt-2"
+            style={{ WebkitUserSelect: "none", userSelect: "none" }}
+          >
+            다시 진단하기
+          </button>
+        </div>
+      )}
+
+      {/* STEP 2 - 언더펌 주의 눈매 */}
+      {permType === "under" && coverage === "heavy" && currentStep >= 2 && (
+        <div ref={step2Ref} className="flex flex-col gap-4">
+          <BackButton onClick={goBack} />
+          <div>
+            <p className="text-pink text-xs font-bold mb-1">STEP 2</p>
+            <h2 className="text-lg font-bold text-white">
+              추천 롯드를 확인해주세요
+            </h2>
+          </div>
+          <div className="rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(255, 45, 120, 0.08)" }}>
+            <p className="text-sm text-pink font-bold">
+              C컬, L컬만 /{" "}
+              <span
+                style={{
+                  textDecoration: "underline wavy",
+                  textDecorationColor: "#ff2d78",
+                  textUnderlineOffset: "4px",
+                }}
+              >
+                사이즈 다운
+              </span>
+            </p>
+          </div>
+          <InfoCard
+            emoji="👁"
+            label="안검내반만"
+            desc="물방울 C컬, L컬 사용 가능"
+          />
+          <InfoCard
+            emoji="✨"
+            label="안검내반 + 애교살"
+            desc="만능 C컬 or 로만사 C컬 역방향"
+          />
+          <div className="rounded-xl bg-zinc-900 px-4 py-3">
+            <p className="text-sm text-zinc-300">
+              ⚠️ <span className="text-pink font-bold">안검내반은 U컬 사용 X</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={reset}
+            className="w-full py-4 rounded-full border-2 border-pink text-pink font-bold text-lg text-center cursor-pointer active:bg-pink active:text-white mt-2"
+            style={{ WebkitUserSelect: "none", userSelect: "none" }}
+          >
+            다시 진단하기
+          </button>
+        </div>
+      )}
+
+      {/* STEP 3 - 속눈썹펌 */}
+      {permType === "eyelash" && currentStep >= 3 && !allSelected && direction === null && (
         <div ref={step3Ref} className="flex flex-col gap-4">
+          <BackButton onClick={goBack} />
           <div>
             <p className="text-pink text-xs font-bold mb-1">STEP 3</p>
             <h2 className="text-lg font-bold text-white">
@@ -309,8 +513,8 @@ export default function Diagnosis() {
         </div>
       )}
 
-      {/* Result */}
-      {allSelected && result && (
+      {/* Result - 속눈썹펌 */}
+      {permType === "eyelash" && allSelected && result && (
         <div ref={resultRef} className="flex flex-col gap-5">
           <div className="text-center">
             <h2 className="text-xl font-bold text-white">✨ 추천 결과</h2>
@@ -368,7 +572,44 @@ export default function Diagnosis() {
 
         </div>
       )}
+
     </div>
+  );
+}
+
+function InfoCard({
+  emoji,
+  label,
+  desc,
+}: {
+  emoji: string;
+  label: string;
+  desc: string;
+}) {
+  return (
+    <div className="w-full text-left p-4 rounded-xl bg-zinc-900 border border-zinc-800">
+      <div className="flex items-start gap-3">
+        <span className="text-lg">{emoji}</span>
+        <div>
+          <p className="font-bold text-white">{label}</p>
+          <p className="text-sm text-zinc-400 mt-0.5">{desc}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="self-start flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full bg-pink text-white text-sm font-bold cursor-pointer active:opacity-70"
+      style={{ WebkitUserSelect: "none", userSelect: "none" }}
+    >
+      <span className="text-sm leading-none">⬅️</span>
+      <span>이전 단계</span>
+    </button>
   );
 }
 
